@@ -28,6 +28,14 @@
 
 - App settings come from `.env`; add every new variable to `.env.example`.
 
+## Norma
+
+This repo is linked to Norma (`remote_url`: `git@github.com:cadenegr/verdict-agent.git`).
+
+- Run `live_check` on every file a change touches (code, config, `package.json`, `pnpm-lock.yaml`), all in one call, and again until it is clean. Skip docs (`*.md`) and data files.
+- When the task is done, record it with `register_applied_actions`, using `rule_id`s from `get_rulesets` / `get_rules_for_ruleset`.
+- A change is done when `make lint && make test` pass and Norma is clean and recorded.
+
 ## Decisions
 
 Record any choice someone might later ask "why?" about in `docs/decisions/`.
