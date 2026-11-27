@@ -1,0 +1,47 @@
+{
+  "note": "Public test set. Products labelled doubt are kept in live/ (gitignored).",
+  "products": [
+    {
+      "name": "Linear",
+      "url": "https://linear.app",
+      "label": "trust",
+      "reason": "Ships often, public changelog, active company."
+    },
+    {
+      "name": "Figma",
+      "url": "https://www.figma.com",
+      "label": "trust",
+      "reason": "Large, active, extensive help centre and docs."
+    },
+    {
+      "name": "Notion",
+      "url": "https://www.notion.com",
+      "label": "trust",
+      "reason": "Active product with a large help centre."
+    },
+    {
+      "name": "Basecamp",
+      "url": "https://basecamp.com",
+      "label": "trust",
+      "reason": "Old but steadily maintained by the same company."
+    },
+    {
+      "name": "Keybase",
+      "url": "https://keybase.io",
+      "label": "dead",
+      "reason": "Frozen since the Zoom acquisition in 2020; site still up."
+    },
+    {
+      "name": "Pocket",
+      "url": "https://getpocket.com",
+      "label": "dead",
+      "reason": "Shut down by Mozilla in 2025, years after the 2017 acquisition."
+    },
+    {
+      "name": "Wunderlist",
+      "url": "https://www.wunderlist.com",
+      "label": "dead",
+      "reason": "Shut down by Microsoft in 2020; domain redirects to Microsoft To Do."
+    }
+  ]
+}

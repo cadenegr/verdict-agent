@@ -1,0 +1,6 @@
+# Written by Copier. Do not edit by hand: `copier update` reads it.
+_commit: v0.3.1
+_src_path: git@github.com:cadenegr/foundation.git
+description: A command-line agent that judges whether a software product is real,
+    alive and trustworthy, with evidence links.
+project_name: verdict-agent
