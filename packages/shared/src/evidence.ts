@@ -6,9 +6,11 @@ export const MIN_MS_BETWEEN_REQUESTS_PER_HOST = 1000;
 export const DEAD_LINK_EXAMPLES = 5;
 
 /**
- * The search topics that hint a product is in trouble. The first four are what
- * Stackgini rates Red (fines, breaches, privacy, the end of a product); the rest
- * are what it rates Yellow (ownership and leadership churn, legal fights, legacy).
+ * The search topics that hint a product is in trouble. Shutdowns, fines and
+ * privacy violations are what Stackgini rates Red; the rest are what it rates
+ * Yellow (breaches, ownership and leadership churn, legal fights, legacy, renames).
+ * A breach is Yellow: Stackgini rates Optimizely and Notepad++ Yellow despite
+ * theirs (decision 6).
  */
 export const RISK_TOPICS = [
   "shut down",
@@ -20,6 +22,7 @@ export const RISK_TOPICS = [
   "private equity",
   "CEO steps down",
   "discontinued",
+  "renamed",
 ] as const;
 
 export type RiskTopic = (typeof RISK_TOPICS)[number];
@@ -27,7 +30,7 @@ export type RiskTopic = (typeof RISK_TOPICS)[number];
 /** A hit older than this many years still counts, but only as a doubt (yellow). */
 export const RISK_HIT_MAX_AGE_YEARS = 3;
 
-/** This many yellow risk hits make a live product `doubt`. */
+/** This many recent yellow risk hits and churn phrases, together, make a live product `doubt`. */
 export const MIN_YELLOW_RISKS = 2;
 
 export const SearchHitSchema = z.object({
@@ -50,6 +53,10 @@ export const EvidenceSchema = z.object({
   finalUrl: z.url().nullable(),
   fetchedAt: z.iso.datetime(),
   copyrightYear: z.number().int().nullable(),
+  /** Phrases on the home page that tell of renames or new owners ("formerly ..."). */
+  churn: z.array(z.string()).default([]),
+  /** The vendor's own notice that the product ends ("end of life", "wird eingestellt"). */
+  endNotices: z.array(z.string()).default([]),
   deadLinks: z.object({
     checked: z.number().int().nonnegative(),
     dead: z.number().int().nonnegative(),

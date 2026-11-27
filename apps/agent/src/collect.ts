@@ -2,7 +2,9 @@
 import {
   assembleEvidence,
   extractLinks,
+  findChurnPhrases,
   findCopyrightYear,
+  findEndNotices,
   findSiteName,
   pickDocsLink,
   pickLinksToCheck,
@@ -30,11 +32,15 @@ export interface CollectDeps {
 /**
  * `name` is the product's name from the input list, when there is one: it searches
  * better than the page title ("Omnissa: Digital Work Platform | Omnissa").
+ * `saved` is an earlier record of the same product: its search hits are reused (they
+ * cost tokens), and so is its archive lookup when that one answered. The site is
+ * always read again.
  */
 export async function collectEvidence(
   url: string,
   deps: CollectDeps,
   name?: string,
+  saved?: Evidence,
 ): Promise<Evidence> {
   const started = deps.clock();
   const fetchedAt = deps.now();
@@ -55,11 +61,16 @@ export async function collectEvidence(
     status: (await deps.site.get(link)).status,
   }));
 
-  const wayback = await findSnapshots(deps.archive, url);
+  const archived = saved && !saved.errors.some((e) => e.startsWith("wayback:"));
+  const wayback = archived
+    ? { ...saved.wayback, error: null }
+    : await findSnapshots(deps.archive, url);
   if (wayback.error) errors.push(wayback.error);
 
   const searchName = name ?? findSiteName(html, pageUrl);
-  const found = await deps.search.search(riskQueries(searchName));
+  const found = saved
+    ? { hits: saved.search, error: saved.errors.find((e) => e.startsWith("search:")) ?? null }
+    : await deps.search.search(riskQueries(searchName));
   if (found.error) errors.push(found.error);
 
   return assembleEvidence({
@@ -67,6 +78,8 @@ export async function collectEvidence(
     finalUrl: home.finalUrl,
     fetchedAt,
     copyrightYear: findCopyrightYear(html),
+    churn: findChurnPhrases(html),
+    endNotices: findEndNotices(html),
     checked,
     docs,
     wayback: { first: wayback.first, last: wayback.last },

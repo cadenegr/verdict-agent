@@ -62,6 +62,50 @@ describe("collectEvidence", () => {
     expect(evidence.links.length).toBeGreaterThanOrEqual(5);
     expect(evidence.errors).toEqual([]);
   });
+
+  it("reuses saved search hits and a saved archive lookup that answered", async () => {
+    const calls: string[] = [];
+    const fetcher = () =>
+      createFetcher({ maxRequests: null, timeoutMs: 1000, fetch: fakeFetch(calls), ...noWait });
+    let searches = 0;
+    const search = {
+      name: "fake",
+      search: async () => {
+        searches += 1;
+        return { hits: [], error: null };
+      },
+    };
+    const deps = {
+      site: fetcher(),
+      archive: fetcher(),
+      search,
+      now: () => new Date("2026-11-26T18:00:00Z"),
+      clock: () => 0,
+    };
+    const hit = {
+      query: '"Keybase" acquired',
+      title: "Zoom buys Keybase",
+      url: "https://n.org/k",
+      year: 2020,
+    };
+    const saved = EvidenceSchema.parse({
+      ...(await collectEvidence("https://keybase.io/", deps)),
+      search: [hit],
+    });
+    calls.length = 0;
+    const before = searches;
+
+    const again = await collectEvidence("https://keybase.io/", deps, undefined, saved);
+    expect(searches).toBe(before);
+    expect(again.search).toEqual([hit]);
+    expect(calls.some((url) => url.startsWith("https://web.archive.org/"))).toBe(false);
+    expect(calls).toContain("https://keybase.io/");
+
+    const failed = { ...saved, errors: ["wayback: status 429"] };
+    calls.length = 0;
+    await collectEvidence("https://keybase.io/", deps, undefined, failed);
+    expect(calls.some((url) => url.startsWith("https://web.archive.org/"))).toBe(true);
+  });
 });
 
 describe("createFetcher", () => {

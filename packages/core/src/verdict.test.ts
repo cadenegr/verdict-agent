@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ProductVerdictSchema, type SearchHit } from "@app/shared";
 import { assembleEvidence, type EvidenceParts } from "./evidence.ts";
-import { namesProduct } from "./risk.ts";
 import { collectSignals, judge, snapshotDate } from "./verdict.ts";
 
 const now = new Date("2026-11-27T12:00:00Z");
@@ -14,6 +13,8 @@ function evidence(overrides: Partial<EvidenceParts> = {}) {
     finalUrl: "https://example.com/",
     fetchedAt: now,
     copyrightYear: 2026,
+    churn: [],
+    endNotices: [],
     checked: [],
     docs: "https://docs.example.com/",
     wayback: { first: wb("20150101000000"), last: wb("20261120000000") },
@@ -190,8 +191,8 @@ describe("judge", () => {
     expect(flags(evidence({ finalUrl: null })).home).toBe("red");
   });
 
-  it("raises a red flag for a recent fine, breach or privacy story", () => {
-    for (const topic of ["fined by regulator", "data breach", "privacy violation"]) {
+  it("raises a red flag for a recent fine or privacy story", () => {
+    for (const topic of ["fined by regulator", "privacy violation"]) {
       const signals = collectSignals(evidence({ search: [hit(`"Example" ${topic}`, 2025)] }), now);
       expect(signals).toContainEqual(
         expect.objectContaining({ kind: "search", flag: "red", weight: -1 }),
@@ -200,7 +201,8 @@ describe("judge", () => {
   });
 
   it("turns a story older than three years into a yellow flag at half weight", () => {
-    const signals = collectSignals(evidence({ search: [hit('"Example" data breach', 2019)] }), now);
+    const fine = hit('"Example" fined by regulator', 2019);
+    const signals = collectSignals(evidence({ search: [fine] }), now);
     expect(signals).toContainEqual(
       expect.objectContaining({
         kind: "search",
@@ -236,21 +238,41 @@ describe("judge", () => {
     expect(judge(evidence({ search: search.slice(0, 1) }), now).verdict).toBe("trust");
   });
 
+  it("doubts a live product whose home page tells of a rename and one yellow story", () => {
+    const churn = ["Snow Atlas, formerly Snow Software"];
+    const search = [hit('"Example" acquired', 2025)];
+    const result = judge(evidence({ churn, search }), now);
+    expect(result.verdict).toBe("doubt");
+    expect(result.evidence).toContainEqual(
+      expect.objectContaining({
+        kind: "churn",
+        flag: "yellow",
+        note: expect.stringContaining("formerly"),
+      }),
+    );
+  });
+
+  it("still trusts a product whose only doubt is a rename on its home page", () => {
+    const churn = ["Planview Vantage, formerly Sciforma", "renamed in 2023"];
+    expect(judge(evidence({ churn }), now).verdict).toBe("trust");
+    expect(collectSignals(evidence({ churn }), now).filter((s) => s.kind === "churn")).toHaveLength(
+      1,
+    );
+  });
+
+  it("rates a live product red when its own page says it ends", () => {
+    const endNotices = ["Die Softwareentwicklung wird nach 2026 eingestellt"];
+    const result = judge(evidence({ endNotices }), now);
+    expect(result.evidence).toContainEqual(
+      expect.objectContaining({ kind: "end-notice", flag: "red" }),
+    );
+  });
+
   it("gives every evidence item a link and a note", () => {
     const result = judge(evidence({ search: [hit('"Example" acquired')] }), now);
     for (const item of result.evidence) {
       expect(item.note.length).toBeGreaterThan(0);
       expect(() => new URL(item.url)).not.toThrow();
     }
-  });
-});
-
-describe("namesProduct", () => {
-  it("matches the whole name, or a long enough first word", () => {
-    const q = (name: string, title: string) => namesProduct(hit(`"${name}" lawsuit`, null, title));
-    expect(q("AnyDesk", "AnyDesk confirms breach")).toBe(true);
-    expect(q("Microsoft 365 Copilot", "Microsoft sued over Copilot")).toBe(true);
-    expect(q("R", "Rust raises funds")).toBe(false);
-    expect(q("Acme", "Unrelated story")).toBe(false);
   });
 });
