@@ -5,15 +5,15 @@ import {
   MAX_DEAD_LINK_SHARE,
   MIN_CONFIDENCE,
   MIN_SIGNALS,
-  RISK_TOPICS,
+  MIN_YELLOW_RISKS,
   STALE_SNAPSHOT_DAYS,
   YOUNG_SITE_DAYS,
   type Evidence,
   type ProductVerdict,
-  type Rating,
   type VerdictEvidence,
 } from "@app/shared";
 import { isSameSite } from "./evidence.ts";
+import { riskSignals } from "./risk.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -22,15 +22,9 @@ export interface Signal extends VerdictEvidence {
   weight: number;
   /** True when the signal says the site is young (polished but thin). */
   young?: boolean;
+  /** True for a search hit older than RISK_HIT_MAX_AGE_YEARS. */
+  old?: boolean;
 }
-
-/** Search topics that point to the end of a product, how much they weigh, and their flag. */
-const SEARCH_WEIGHTS: Readonly<
-  Partial<Record<(typeof RISK_TOPICS)[number], { weight: number; flag: Rating }>>
-> = {
-  "shut down": { weight: -1, flag: "red" },
-  acquired: { weight: -0.5, flag: "yellow" },
-};
 
 /** Reads the capture time from a Wayback link (`/web/20201231235959/...`). */
 export function snapshotDate(link: string): Date | null {
@@ -122,20 +116,6 @@ function waybackSignals(evidence: Evidence, now: Date): Signal[] {
   return signals;
 }
 
-function searchSignals(evidence: Evidence): Signal[] {
-  const signals: Signal[] = [];
-  for (const topic of RISK_TOPICS) {
-    const rule = SEARCH_WEIGHTS[topic];
-    if (rule === undefined) continue;
-    // The query is `"<name>" <topic>`: match the end, so a product named "Acquired" is not hit.
-    const hit = evidence.search.find((h) => h.query.toLowerCase().endsWith(` ${topic}`));
-    if (hit) {
-      signals.push({ url: hit.url, kind: "search", note: `"${topic}": ${hit.title}`, ...rule });
-    }
-  }
-  return signals;
-}
-
 /**
  * Each lookup that didn't answer (archive, search): no weight either way, but the
  * verdict rests on less than it seems. A home page that fails is not a gap: that
@@ -158,7 +138,7 @@ export function collectSignals(evidence: Evidence, now: Date): Signal[] {
     ...homeSignals(evidence),
     ...linkSignals(evidence),
     ...waybackSignals(evidence, now),
-    ...searchSignals(evidence),
+    ...riskSignals(evidence, now),
     ...gapSignals(evidence),
   ];
 }
@@ -170,7 +150,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  * winning side is the confidence. A young site that looks alive is `doubt`,
  * and a weak lead is `unsure` rather than a guess. A failed lookup caps the
  * confidence, and "alive" resting on fewer than MIN_SIGNALS observations is
- * `unsure`: a home page that loads is not enough to trust a product.
+ * `unsure`: a home page that loads is not enough to trust a product. A live
+ * product with MIN_YELLOW_RISKS or more recent yellow search hits is `doubt`.
  */
 export function judge(evidence: Evidence, now: Date): ProductVerdict {
   const signals = collectSignals(evidence, now);
@@ -186,10 +167,13 @@ export function judge(evidence: Evidence, now: Date): ProductVerdict {
   const share = round2(Math.max(alive, dead) / total);
   const confidence = hasGap ? Math.min(share, GAP_MAX_CONFIDENCE) : share;
   const lean = alive >= dead ? "trust" : "dead";
-  const young = signals.some((s) => s.young === true);
+  const yellowRisks = signals.filter(
+    (s) => s.kind === "search" && s.flag === "yellow" && s.old !== true,
+  ).length;
+  const doubtful = signals.some((s) => s.young === true) || yellowRisks >= MIN_YELLOW_RISKS;
   const observed = signals.filter((s) => s.kind !== "gap").length;
   const thin = lean === "trust" && observed < MIN_SIGNALS;
   const verdict =
-    confidence < MIN_CONFIDENCE || thin ? "unsure" : lean === "trust" && young ? "doubt" : lean;
+    confidence < MIN_CONFIDENCE || thin ? "unsure" : lean === "trust" && doubtful ? "doubt" : lean;
   return { product: evidence.url, verdict, confidence, evidence: links };
 }

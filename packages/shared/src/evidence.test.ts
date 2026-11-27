@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EvidenceSchema } from "./evidence.ts";
+import { EvidenceSchema, SearchHitSchema } from "./evidence.ts";
 
 const record = {
   url: "https://example.com/",
@@ -22,5 +22,12 @@ describe("EvidenceSchema", () => {
 
   it("rejects a record whose links are not URLs", () => {
     expect(EvidenceSchema.safeParse({ ...record, links: ["not a url"] }).success).toBe(false);
+  });
+});
+
+describe("SearchHitSchema", () => {
+  it("reads a hit without a year as year null", () => {
+    const hit = SearchHitSchema.parse({ query: "q", title: "t", url: "https://x.example/" });
+    expect(hit.year).toBeNull();
   });
 });

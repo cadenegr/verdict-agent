@@ -51,3 +51,12 @@ export function parseProductList(text: string): ProductListResult {
   if (parsed.data.products.length === 0) return { ok: false, error: "no products in the list" };
   return { ok: true, products: parsed.data.products.map(({ name, url }) => ({ name, url })) };
 }
+
+/** The name a person gave the product, or undefined when the list only named it by host. */
+export function givenName(product: Product): string | undefined {
+  try {
+    return product.name === new URL(product.url).hostname ? undefined : product.name;
+  } catch {
+    return product.name;
+  }
+}

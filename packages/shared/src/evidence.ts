@@ -5,13 +5,37 @@ export const MAX_PAGES_PER_PRODUCT = 15;
 export const MIN_MS_BETWEEN_REQUESTS_PER_HOST = 1000;
 export const DEAD_LINK_EXAMPLES = 5;
 
-/** The search topics that hint a product is in trouble. */
-export const RISK_TOPICS = ["breach", "lawsuit", "acquired", "shut down"] as const;
+/**
+ * The search topics that hint a product is in trouble. The first four are what
+ * Stackgini rates Red (fines, breaches, privacy, the end of a product); the rest
+ * are what it rates Yellow (ownership and leadership churn, legal fights, legacy).
+ */
+export const RISK_TOPICS = [
+  "shut down",
+  "data breach",
+  "fined by regulator",
+  "privacy violation",
+  "lawsuit",
+  "acquired",
+  "private equity",
+  "CEO steps down",
+  "discontinued",
+] as const;
+
+export type RiskTopic = (typeof RISK_TOPICS)[number];
+
+/** A hit older than this many years still counts, but only as a doubt (yellow). */
+export const RISK_HIT_MAX_AGE_YEARS = 3;
+
+/** This many yellow risk hits make a live product `doubt`. */
+export const MIN_YELLOW_RISKS = 2;
 
 export const SearchHitSchema = z.object({
   query: z.string(),
   title: z.string(),
   url: z.url(),
+  /** Year the page was published, when the search shows it. */
+  year: z.number().int().min(1990).max(2100).nullable().default(null),
 });
 
 export const DeadLinkSchema = z.object({

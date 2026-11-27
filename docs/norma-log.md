@@ -30,6 +30,11 @@ Clean on the first check (PR C): `packages/shared/src/verdict.ts`, `packages/sha
 `apps/agent/src/wayback.ts`, `apps/agent/src/lines.ts`, `apps/agent/src/export.ts`. `verdict.ts` was
 checked again after the inspector's fix (no gap for a failed home page): clean.
 
+Clean on the first check (PR D, neodgri): `packages/core/src/risk.ts` (new: risk rules, name and
+topic guards, dynamic RegExp built from an escaped name), `apps/agent/src/run.ts`. The other PR D
+files (`verdict.ts`, `products.ts`, `evidence.ts`, `collect.ts`, `search/claude.ts`, `verdict.ts` CLI)
+were left to the Norma GitHub App on the PR, to save the owner's token budget.
+
 Not checked by `live_check`: the `apps/web` files, which come unchanged from the foundation
 template, and `pnpm-lock.yaml` (too large for one call). The Norma GitHub App checks the whole PR.
 

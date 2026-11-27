@@ -10,7 +10,7 @@ export const PRODUCTS_AT_ONCE = 4;
 
 export interface Agent {
   /** Collects the evidence for one product. Safe to call for several products at once. */
-  collect(url: string): Promise<Evidence>;
+  collect(url: string, name?: string): Promise<Evidence>;
 }
 
 export function startAgent(): Agent {
@@ -22,16 +22,20 @@ export function startAgent(): Agent {
   const hosts = createHostQueue();
   const archive: Fetcher = createFetcher({ maxRequests: null, timeoutMs: 30_000, hosts });
   return {
-    collect(url) {
+    collect(url, name) {
       // A fetcher per product for its page budget; the queue is shared.
       const site = createFetcher({ maxRequests: MAX_PAGES_PER_PRODUCT, timeoutMs: 15_000, hosts });
-      return collectEvidence(url, {
-        site,
-        archive,
-        search,
-        now: () => new Date(),
-        clock: Date.now,
-      });
+      return collectEvidence(
+        url,
+        {
+          site,
+          archive,
+          search,
+          now: () => new Date(),
+          clock: Date.now,
+        },
+        name,
+      );
     },
   };
 }

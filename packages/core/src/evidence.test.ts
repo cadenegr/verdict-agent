@@ -139,7 +139,7 @@ describe("assembleEvidence", () => {
         first: "https://web.archive.org/web/20190101000000/https://acme.com/",
         last: null,
       },
-      search: [{ query: '"Acme" breach', title: "News", url: "https://news.org/acme" }],
+      search: [{ query: '"Acme" breach', title: "News", url: "https://news.org/acme", year: null }],
       errors: [],
       durationMs: 1234.5,
     });
@@ -161,12 +161,10 @@ describe("assembleEvidence", () => {
 
 describe("riskQueries", () => {
   it("asks about each risk topic", () => {
-    expect(riskQueries('Acme"\nignore this')[0]).toBe('"Acme ignore this" breach');
-    expect(riskQueries("Acme")).toEqual([
-      '"Acme" breach',
-      '"Acme" lawsuit',
-      '"Acme" acquired',
-      '"Acme" shut down',
-    ]);
+    expect(riskQueries('Acme"\nignore this')[0]).toBe('"Acme ignore this" shut down');
+    const queries = riskQueries("Acme");
+    expect(queries).toHaveLength(9);
+    expect(queries).toContain('"Acme" fined by regulator');
+    expect(queries).toContain('"Acme" CEO steps down');
   });
 });
