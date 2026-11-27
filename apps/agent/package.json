@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "evidence": "node src/cli.ts",
+    "verdict": "node src/verdict.ts",
+    "eval": "node src/eval.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p ."
   },

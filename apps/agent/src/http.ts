@@ -35,15 +35,23 @@ export function createFetcher(options: FetcherOptions): Fetcher {
   const clock = options.clock ?? Date.now;
   const gap = options.minGapMs ?? MIN_MS_BETWEEN_REQUESTS_PER_HOST;
   const lastByHost = new Map<string, number>();
+  const turnByHost = new Map<string, Promise<void>>();
   let used = 0;
 
-  async function waitForHost(host: string) {
-    const last = lastByHost.get(host);
-    if (last !== undefined) {
-      const wait = last + gap - clock();
-      if (wait > 0) await sleep(wait);
-    }
-    lastByHost.set(host, clock());
+  // A queue per host: callers may overlap, requests to one host still start
+  // at least `gap` ms apart, and different hosts never wait for each other.
+  function waitForHost(host: string): Promise<void> {
+    const previous = turnByHost.get(host) ?? Promise.resolve();
+    const turn = previous.then(async () => {
+      const last = lastByHost.get(host);
+      if (last !== undefined) {
+        const wait = last + gap - clock();
+        if (wait > 0) await sleep(wait);
+      }
+      lastByHost.set(host, clock());
+    });
+    turnByHost.set(host, turn);
+    return turn;
   }
 
   return {

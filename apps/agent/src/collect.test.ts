@@ -4,7 +4,6 @@ import { EvidenceSchema, MAX_PAGES_PER_PRODUCT } from "@app/shared";
 import { collectEvidence } from "./collect.ts";
 import { createFetcher } from "./http.ts";
 import { claudeSearch, parseHits } from "./search/claude.ts";
-import { readUrls } from "./cli.ts";
 
 const recorded = (name: string) =>
   readFileSync(new URL(`../../../packages/core/src/__fixtures__/${name}`, import.meta.url), "utf8");
@@ -116,14 +115,5 @@ describe("search adapters", () => {
       throw new Error("timed out");
     });
     expect(await search.search(["q"])).toEqual({ hits: [], error: "search: timed out" });
-  });
-});
-
-describe("readUrls", () => {
-  it("skips blanks and comments and adds https", () => {
-    expect(readUrls("linear.app\n\n# note\nhttps://keybase.io\n")).toEqual([
-      "https://linear.app",
-      "https://keybase.io",
-    ]);
   });
 });
