@@ -15,7 +15,17 @@ export const YOUNG_SITE_DAYS = 365;
 /** Share of checked links that may be dead before it counts against the site. */
 export const MAX_DEAD_LINK_SHARE = 0.3;
 
+/** If any evidence is missing (a lookup failed), confidence is capped here. */
+export const GAP_MAX_CONFIDENCE = 0.6;
+
+/** Fewer real signals than this (gaps don't count) and the agent says `unsure`. */
+export const MIN_SIGNALS = 3;
+
 export const VerdictSchema = z.enum(VERDICTS);
+
+/** Stackgini's traffic light: the overall call and the colour of each flag. */
+export const RATINGS = ["green", "yellow", "red"] as const;
+export const RatingSchema = z.enum(RATINGS);
 
 export const EVIDENCE_KINDS = [
   "home",
@@ -25,6 +35,8 @@ export const EVIDENCE_KINDS = [
   "wayback-first",
   "wayback-last",
   "search",
+  /** A lookup that failed: no evidence either way, but less confidence. */
+  "gap",
 ] as const;
 
 export const VerdictEvidenceSchema = z.object({
@@ -32,6 +44,8 @@ export const VerdictEvidenceSchema = z.object({
   kind: z.enum(EVIDENCE_KINDS),
   /** One line a human can check by opening the link. */
   note: z.string().min(1),
+  /** green speaks for the product, yellow is a doubt, red is a reason not to buy. */
+  flag: RatingSchema,
 });
 
 /** One line of `verdicts.jsonl`: plain data, converted to the organizers' format later. */
@@ -42,6 +56,7 @@ export const ProductVerdictSchema = z.object({
   evidence: z.array(VerdictEvidenceSchema),
 });
 
+export type Rating = z.infer<typeof RatingSchema>;
 export type Verdict = z.infer<typeof VerdictSchema>;
 export type VerdictEvidence = z.infer<typeof VerdictEvidenceSchema>;
 export type ProductVerdict = z.infer<typeof ProductVerdictSchema>;

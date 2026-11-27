@@ -13,6 +13,7 @@ is written from this log.
 | 2026-11-27 | B   | neodgri  | `node-no-lint-config`      | `apps/agent/package.json`                            | **accepted**                        | Same reason as author A: ESLint and Prettier are configured once at the root and `make lint` covers every package.                                                                                                              |
 | 2026-11-27 | B   | neodgri  | `js-scl-await-in-loop`     | `apps/agent/src/cli.ts`, `apps/agent/src/collect.ts` | **fixed** (settles the clash below) | A's accepted loops replaced by `mapWithLimit`: 4 products, 2 links at once. The fetcher's per-host queue keeps 1 request/s per host. Re-check: clean.                                                                           |
 | 2026-11-27 | B   | neodgri  | `js-unbounded-promise-all` | `apps/agent/src/collect.ts`                          | **fixed**                           | The first settle attempt used `Promise.all` over the links (HIGH). Replaced by `mapWithLimit(toCheck, 2, …)`. Re-check: clean.                                                                                                  |
+| 2026-11-27 | C   | cadenegr | `js-console-log-only`      | `apps/agent/src/eval.ts`                             | **accepted**                        | Same reason as author B in PR B: `make eval` is a command-line program and the table (now with a rating column and a wanted-vs-got table) is its output. Both authors now handle this rule the same way.                        |
 
 Clean on the first check: `packages/shared/src/verdict.ts`, `packages/core/src/verdict.ts`,
 `packages/core/src/evidence.ts`, `apps/agent/src/http.ts`, `apps/agent/src/wayback.ts`,
@@ -23,6 +24,11 @@ Clean on the first check (PR B): `apps/agent/src/verdict.ts`, `apps/agent/src/po
 `packages/core/src/score.ts`, `packages/shared/src/testset.ts`. Author B checked these before
 comparing with author A's rows, but knew A's await-in-loop decision beforehand (same session built
 PR A, and the work order stated it).
+
+Clean on the first check (PR C): `packages/shared/src/verdict.ts`, `packages/shared/src/stackgini.ts`,
+`packages/core/src/verdict.ts`, `packages/core/src/score.ts`, `packages/core/src/stackgini.ts`,
+`apps/agent/src/wayback.ts`, `apps/agent/src/lines.ts`, `apps/agent/src/export.ts`. `verdict.ts` was
+checked again after the inspector's fix (no gap for a failed home page): clean.
 
 Not checked by `live_check`: the `apps/web` files, which come unchanged from the foundation
 template, and `pnpm-lock.yaml` (too large for one call). The Norma GitHub App checks the whole PR.

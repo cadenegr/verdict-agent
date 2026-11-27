@@ -6,6 +6,7 @@
     "evidence": "node src/cli.ts",
     "verdict": "node src/verdict.ts",
     "eval": "node src/eval.ts",
+    "export": "node src/export.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p ."
   },

@@ -6,3 +6,4 @@ export * from "./task.ts";
 export * from "./evidence.ts";
 export * from "./verdict.ts";
 export * from "./testset.ts";
+export * from "./stackgini.ts";
