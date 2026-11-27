@@ -62,3 +62,10 @@ template, and `pnpm-lock.yaml` (too large for one call). The Norma GitHub App ch
 - **Given up:** A's simpler mental model (one request at a time, nothing to reason about).
 - **Honest note:** B was not blind to A's choice. The same session built PR A, and the work order
   named A's decision. B's code and its first check came before the comparison.
+
+## build/tavily-search (Tavily search, stricter red topics, Claude judge)
+
+`live_check` clean on the first check: `apps/agent/src/search/tavily.ts`, `tavily.test.ts`,
+`packages/core/src/risk.ts`, `risk.test.ts`. The judge files (`packages/core/src/judge.ts`,
+`packages/shared/src/judge.ts`, `apps/agent/src/judge.ts`, `apps/agent/src/claude.ts`) were left
+to the Norma GitHub App on the PR, to save the owner's token budget.

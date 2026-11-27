@@ -35,6 +35,13 @@ describe("riskSignals", () => {
     expect(flagOf([hit('"Acme" privacy violation', "Acme broke GDPR, DPA says")])).toEqual(["red"]);
   });
 
+  it("ignores privacy policies, year-end news and lawsuits under the red topics", () => {
+    const policy = hit('"Acme" privacy violation', "Privacy Policy | Acme Software");
+    const yearEnd = hit('"Acme" shut down', "Acme Closes 2025 After Record Growth");
+    const suit = hit('"Acme" fined by regulator', "Acme sued by competition regulator");
+    expect(flagOf([policy, yearEnd, suit])).toEqual([]);
+  });
+
   it("turns a warning of a fine into a doubt", () => {
     const warning = hit('"Acme" fined by regulator', "EU warns Acme it could be fined billions");
     expect(riskSignals(evidence([warning]), now)).toEqual([

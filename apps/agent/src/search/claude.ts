@@ -1,16 +1,9 @@
 // Search through Claude Code's web search (`claude -p`). Uses the owner's token budget: opt in.
-import { execFile } from "node:child_process";
 import { SearchHitSchema } from "@app/shared";
+import { runClaude, type Runner } from "../claude.ts";
 import type { SearchProvider } from "./provider.ts";
 
-export type Runner = (args: string[], timeoutMs: number) => Promise<string>;
-
-const runClaude: Runner = (args, timeoutMs) =>
-  new Promise((resolve, reject) => {
-    execFile("claude", args, { timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error, stdout) =>
-      error ? reject(error) : resolve(stdout),
-    );
-  });
+export type { Runner } from "../claude.ts";
 
 function prompt(queries: readonly string[]): string {
   return [

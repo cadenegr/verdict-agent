@@ -7,3 +7,4 @@ export * from "./evidence.ts";
 export * from "./verdict.ts";
 export * from "./testset.ts";
 export * from "./stackgini.ts";
+export * from "./judge.ts";
