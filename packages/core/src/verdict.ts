@@ -1,13 +1,16 @@
 // Rules that turn the evidence for one product into a verdict.
 // Pure functions: the clock comes in as `now`.
 import {
+  GAP_MAX_CONFIDENCE,
   MAX_DEAD_LINK_SHARE,
   MIN_CONFIDENCE,
+  MIN_SIGNALS,
   RISK_TOPICS,
   STALE_SNAPSHOT_DAYS,
   YOUNG_SITE_DAYS,
   type Evidence,
   type ProductVerdict,
+  type Rating,
   type VerdictEvidence,
 } from "@app/shared";
 import { isSameSite } from "./evidence.ts";
@@ -21,10 +24,12 @@ export interface Signal extends VerdictEvidence {
   young?: boolean;
 }
 
-/** Search topics that point to the end of a product, and how much they weigh. */
-const SEARCH_WEIGHTS: Readonly<Partial<Record<(typeof RISK_TOPICS)[number], number>>> = {
-  "shut down": -1,
-  acquired: -0.5,
+/** Search topics that point to the end of a product, how much they weigh, and their flag. */
+const SEARCH_WEIGHTS: Readonly<
+  Partial<Record<(typeof RISK_TOPICS)[number], { weight: number; flag: Rating }>>
+> = {
+  "shut down": { weight: -1, flag: "red" },
+  acquired: { weight: -0.5, flag: "yellow" },
 };
 
 /** Reads the capture time from a Wayback link (`/web/20201231235959/...`). */
@@ -41,7 +46,9 @@ function daysBetween(earlier: Date, later: Date): number {
 
 function homeSignals(evidence: Evidence): Signal[] {
   if (evidence.finalUrl === null) {
-    return [{ url: evidence.url, kind: "home", note: "Home page did not load", weight: -3 }];
+    return [
+      { url: evidence.url, kind: "home", note: "Home page did not load", weight: -3, flag: "red" },
+    ];
   }
   if (!isSameSite(evidence.finalUrl, evidence.url)) {
     return [
@@ -50,10 +57,13 @@ function homeSignals(evidence: Evidence): Signal[] {
         kind: "moved",
         note: `Home page redirects to another site: ${new URL(evidence.finalUrl).hostname}`,
         weight: -2,
+        flag: "yellow",
       },
     ];
   }
-  return [{ url: evidence.finalUrl, kind: "home", note: "Home page loads", weight: 1 }];
+  return [
+    { url: evidence.finalUrl, kind: "home", note: "Home page loads", weight: 1, flag: "green" },
+  ];
 }
 
 function linkSignals(evidence: Evidence): Signal[] {
@@ -66,6 +76,7 @@ function linkSignals(evidence: Evidence): Signal[] {
       kind: "dead-links",
       note: `${dead} of ${checked} checked links are dead`,
       weight: -1,
+      flag: "yellow",
     });
   }
   if (evidence.docs !== null) {
@@ -74,6 +85,7 @@ function linkSignals(evidence: Evidence): Signal[] {
       kind: "docs",
       note: "Help centre or docs found",
       weight: 1,
+      flag: "green",
     });
   }
   return signals;
@@ -91,6 +103,7 @@ function waybackSignals(evidence: Evidence, now: Date): Signal[] {
       kind: "wayback-last",
       note: stale ? `Last archived ${age} days ago` : "Archived within the last year",
       weight: stale ? -2 : 1,
+      flag: stale ? "yellow" : "green",
     });
   }
   const firstDate = first === null ? null : snapshotDate(first);
@@ -102,6 +115,7 @@ function waybackSignals(evidence: Evidence, now: Date): Signal[] {
       kind: "wayback-first",
       note: young ? `First archived only ${age} days ago` : `First archived ${age} days ago`,
       weight: young ? 0 : 1,
+      flag: young ? "yellow" : "green",
       young,
     });
   }
@@ -111,15 +125,31 @@ function waybackSignals(evidence: Evidence, now: Date): Signal[] {
 function searchSignals(evidence: Evidence): Signal[] {
   const signals: Signal[] = [];
   for (const topic of RISK_TOPICS) {
-    const weight = SEARCH_WEIGHTS[topic];
-    if (weight === undefined) continue;
+    const rule = SEARCH_WEIGHTS[topic];
+    if (rule === undefined) continue;
     // The query is `"<name>" <topic>`: match the end, so a product named "Acquired" is not hit.
     const hit = evidence.search.find((h) => h.query.toLowerCase().endsWith(` ${topic}`));
     if (hit) {
-      signals.push({ url: hit.url, kind: "search", note: `"${topic}": ${hit.title}`, weight });
+      signals.push({ url: hit.url, kind: "search", note: `"${topic}": ${hit.title}`, ...rule });
     }
   }
   return signals;
+}
+
+/**
+ * Each lookup that didn't answer (archive, search): no weight either way, but the
+ * verdict rests on less than it seems. A home page that fails is not a gap: that
+ * failure is the evidence, and homeSignals already counts it.
+ */
+function gapSignals(evidence: Evidence): Signal[] {
+  const lookups = evidence.errors.filter((error) => !error.startsWith("home:"));
+  return lookups.map((error): Signal => ({
+    url: evidence.url,
+    kind: "gap",
+    note: `Not checked: ${error}`,
+    weight: 0,
+    flag: "yellow",
+  }));
 }
 
 /** Every observation the rules make about one product. */
@@ -129,6 +159,7 @@ export function collectSignals(evidence: Evidence, now: Date): Signal[] {
     ...linkSignals(evidence),
     ...waybackSignals(evidence, now),
     ...searchSignals(evidence),
+    ...gapSignals(evidence),
   ];
 }
 
@@ -137,22 +168,28 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 /**
  * Adds the signals up. Alive and dead weight are compared; the share of the
  * winning side is the confidence. A young site that looks alive is `doubt`,
- * and a weak lead is `unsure` rather than a guess.
+ * and a weak lead is `unsure` rather than a guess. A failed lookup caps the
+ * confidence, and "alive" resting on fewer than MIN_SIGNALS observations is
+ * `unsure`: a home page that loads is not enough to trust a product.
  */
 export function judge(evidence: Evidence, now: Date): ProductVerdict {
   const signals = collectSignals(evidence, now);
   const alive = signals.reduce((sum, s) => sum + Math.max(s.weight, 0), 0);
   const dead = signals.reduce((sum, s) => sum + Math.max(-s.weight, 0), 0);
-  const links = signals.map(({ url, kind, note }) => ({ url, kind, note }));
+  const links = signals.map(({ url, kind, note, flag }) => ({ url, kind, note, flag }));
   const total = alive + dead;
   // Defensive: homeSignals always adds a signal, so total is never 0 today.
   if (total === 0) {
     return { product: evidence.url, verdict: "unsure", confidence: 0, evidence: links };
   }
-  const confidence = round2(Math.max(alive, dead) / total);
+  const hasGap = signals.some((s) => s.kind === "gap");
+  const share = round2(Math.max(alive, dead) / total);
+  const confidence = hasGap ? Math.min(share, GAP_MAX_CONFIDENCE) : share;
   const lean = alive >= dead ? "trust" : "dead";
   const young = signals.some((s) => s.young === true);
+  const observed = signals.filter((s) => s.kind !== "gap").length;
+  const thin = lean === "trust" && observed < MIN_SIGNALS;
   const verdict =
-    confidence < MIN_CONFIDENCE ? "unsure" : lean === "trust" && young ? "doubt" : lean;
+    confidence < MIN_CONFIDENCE || thin ? "unsure" : lean === "trust" && young ? "doubt" : lean;
   return { product: evidence.url, verdict, confidence, evidence: links };
 }

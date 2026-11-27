@@ -132,6 +132,62 @@ describe("judge", () => {
     expect(signals.some((s) => s.kind === "search")).toBe(false);
   });
 
+  it("is unsure when only the home page speaks for the product", () => {
+    const result = judge(evidence({ docs: null, wayback: { first: null, last: null } }), now);
+    expect(result).toMatchObject({ verdict: "unsure", confidence: 1 });
+  });
+
+  it("caps the confidence and records a gap when a lookup failed", () => {
+    const result = judge(evidence({ errors: ["wayback: status 429"] }), now);
+    expect(result).toMatchObject({ verdict: "trust", confidence: 0.6 });
+    expect(result.evidence).toContainEqual({
+      url: "https://example.com",
+      kind: "gap",
+      note: "Not checked: wayback: status 429",
+      flag: "yellow",
+    });
+  });
+
+  it("does not treat a failed home page as a gap: it stays a clear dead call", () => {
+    const result = judge(
+      evidence({
+        finalUrl: null,
+        docs: null,
+        wayback: { first: null, last: null },
+        errors: ["home: status 503"],
+      }),
+      now,
+    );
+    expect(result).toMatchObject({ verdict: "dead", confidence: 1 });
+    expect(result.evidence.some((e) => e.kind === "gap")).toBe(false);
+  });
+
+  it("does not count gaps as signals", () => {
+    const result = judge(
+      evidence({
+        docs: null,
+        wayback: { first: null, last: null },
+        errors: ["wayback: timeout", "search: no key"],
+      }),
+      now,
+    );
+    expect(result.verdict).toBe("unsure");
+  });
+
+  it("flags each signal: green for, yellow doubt, red against", () => {
+    const flags = (e: Parameters<typeof judge>[0]) =>
+      Object.fromEntries(judge(e, now).evidence.map((item) => [item.kind, item.flag]));
+    expect(flags(evidence())).toEqual({
+      home: "green",
+      docs: "green",
+      "wayback-last": "green",
+      "wayback-first": "green",
+    });
+    expect(flags(evidence({ search: [hit('"Example" shut down')] })).search).toBe("red");
+    expect(flags(evidence({ search: [hit('"Example" acquired')] })).search).toBe("yellow");
+    expect(flags(evidence({ finalUrl: null })).home).toBe("red");
+  });
+
   it("gives every evidence item a link and a note", () => {
     const result = judge(evidence({ search: [hit('"Example" acquired')] }), now);
     for (const item of result.evidence) {
