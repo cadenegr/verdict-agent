@@ -6,3 +6,4 @@ export * from "./verdict.ts";
 export * from "./products.ts";
 export * from "./score.ts";
 export * from "./stackgini.ts";
+export * from "./risk.ts";

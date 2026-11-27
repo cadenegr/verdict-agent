@@ -1,7 +1,7 @@
 // make verdict IN=<file>: judge each product and write one line per product to live/verdicts.jsonl.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { judge, parseProductList } from "@app/core";
+import { givenName, judge, parseProductList } from "@app/core";
 import type { VerdictLine } from "@app/shared";
 import { mapWithLimit } from "./pool.ts";
 import { PRODUCTS_AT_ONCE, startAgent } from "./run.ts";
@@ -23,7 +23,7 @@ async function main() {
 
   const agent = startAgent();
   const lines = await mapWithLimit(list.products, PRODUCTS_AT_ONCE, async (product) => {
-    const evidence = await agent.collect(product.url);
+    const evidence = await agent.collect(product.url, givenName(product));
     const checkedAt = new Date();
     const line: VerdictLine = {
       name: product.name,

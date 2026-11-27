@@ -27,7 +27,15 @@ export interface CollectDeps {
   clock: () => number;
 }
 
-export async function collectEvidence(url: string, deps: CollectDeps): Promise<Evidence> {
+/**
+ * `name` is the product's name from the input list, when there is one: it searches
+ * better than the page title ("Omnissa: Digital Work Platform | Omnissa").
+ */
+export async function collectEvidence(
+  url: string,
+  deps: CollectDeps,
+  name?: string,
+): Promise<Evidence> {
   const started = deps.clock();
   const fetchedAt = deps.now();
   const errors: string[] = [];
@@ -50,8 +58,8 @@ export async function collectEvidence(url: string, deps: CollectDeps): Promise<E
   const wayback = await findSnapshots(deps.archive, url);
   if (wayback.error) errors.push(wayback.error);
 
-  const name = findSiteName(html, pageUrl);
-  const found = await deps.search.search(riskQueries(name));
+  const searchName = name ?? findSiteName(html, pageUrl);
+  const found = await deps.search.search(riskQueries(searchName));
   if (found.error) errors.push(found.error);
 
   return assembleEvidence({

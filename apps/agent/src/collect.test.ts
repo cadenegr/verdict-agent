@@ -106,8 +106,12 @@ describe("search adapters", () => {
   it("keeps only valid hits from a chatty reply", () => {
     const reply =
       'Here you go:\n[{"query":"q","title":"t","url":"https://a.org/"},{"title":"no url"}]';
-    expect(parseHits(reply)).toEqual([{ query: "q", title: "t", url: "https://a.org/" }]);
+    expect(parseHits(reply)).toEqual([
+      { query: "q", title: "t", url: "https://a.org/", year: null },
+    ]);
     expect(parseHits("no results")).toEqual([]);
+    const dated = '[{"query":"q","title":"t","url":"https://a.org/","year":2025}]';
+    expect(parseHits(dated)[0]?.year).toBe(2025);
   });
 
   it("turns a failed claude call into an error, not a crash", async () => {

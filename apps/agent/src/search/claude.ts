@@ -15,7 +15,8 @@ const runClaude: Runner = (args, timeoutMs) =>
 function prompt(queries: readonly string[]): string {
   return [
     "Run a web search for each query below. For each, keep at most 3 results that are really about it.",
-    'Answer with only a JSON array, no prose: [{"query": "...", "title": "...", "url": "https://..."}].',
+    'Answer with only a JSON array, no prose: [{"query": "...", "title": "...", "url": "https://...", "year": 2024}].',
+    'Set "year" to the year the page was published, or null when the result does not show it.',
     "Use only URLs that appeared in the search results. An empty array is a fine answer.",
     ...queries.map((query) => `- ${query}`),
   ].join("\n");
@@ -39,7 +40,8 @@ export function parseHits(reply: string) {
   });
 }
 
-export function claudeSearch(run: Runner = runClaude, timeoutMs = 90_000): SearchProvider {
+// Nine risk topics in one call: give the searches time (90 s was enough for four).
+export function claudeSearch(run: Runner = runClaude, timeoutMs = 180_000): SearchProvider {
   return {
     name: "claude",
     async search(queries) {

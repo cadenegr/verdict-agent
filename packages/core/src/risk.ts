@@ -1,0 +1,116 @@
+// Risk news from web search: which hits count against a product, and how much.
+// Pure functions: the clock comes in as `now`.
+import {
+  RISK_HIT_MAX_AGE_YEARS,
+  RISK_TOPICS,
+  type Evidence,
+  type Rating,
+  type RiskTopic,
+  type SearchHit,
+} from "@app/shared";
+import type { Signal } from "./verdict.ts";
+
+interface RiskRule {
+  weight: number;
+  flag: Rating;
+  /** The hit's title must contain one of these: search engines return near misses. */
+  words: readonly string[];
+}
+
+/**
+ * How much each risk topic weighs against a product, the flag it raises, and the
+ * words that show a title is really about it. Tuned on the odd rows of the
+ * Stackgini samples: without `words`, 6 of 20; with them, 9 of 20.
+ */
+const RISK_RULES: Readonly<Record<RiskTopic, RiskRule>> = {
+  "shut down": { weight: -1, flag: "red", words: ["shut", "shutter", "closes", "closing down"] },
+  "data breach": {
+    weight: -1,
+    flag: "red",
+    words: ["breach", "leak", "hack", "exposed", "stolen"],
+  },
+  "fined by regulator": {
+    weight: -1,
+    flag: "red",
+    words: ["fine", "penalt", "ftc", "settle", "regulator"],
+  },
+  "privacy violation": { weight: -1, flag: "red", words: ["privacy", "gdpr", "surveillance"] },
+  lawsuit: {
+    weight: -0.5,
+    flag: "yellow",
+    words: ["lawsuit", "sued", "sues", "suit", "court", "class action"],
+  },
+  acquired: {
+    weight: -0.5,
+    flag: "yellow",
+    words: ["acquire", "acquisition", "buys", "bought", "takeover", "to buy"],
+  },
+  "private equity": {
+    weight: -0.5,
+    flag: "yellow",
+    words: ["equity", "buyout", "kkr", "vista", "thoma bravo", "investor"],
+  },
+  "CEO steps down": { weight: -0.5, flag: "yellow", words: ["ceo"] },
+  discontinued: {
+    weight: -1,
+    flag: "yellow",
+    words: ["discontinu", "end of life", "end-of-life", "deprecat", "retire", "sunset"],
+  },
+};
+
+/** The quoted product name at the start of a query: `"<name>" <topic>`. */
+function queriedName(query: string): string {
+  return /^"([^"]*)"/.exec(query)?.[1]?.trim() ?? "";
+}
+
+/**
+ * A hit counts only when its title names the product: every large vendor has
+ * some lawsuit, and a search returns it whether or not it is about this product.
+ * The whole name matches, or its first word when that word is long enough to mean something.
+ */
+export function namesProduct(hit: SearchHit): boolean {
+  const name = queriedName(hit.query).toLowerCase();
+  const title = hit.title.toLowerCase();
+  if (name === "") return false;
+  if (hasWord(title, name)) return true;
+  const first = name.split(/[\s/:–-]+/)[0] ?? "";
+  return first.length >= 4 && hasWord(title, first);
+}
+
+/** `words` appears in `text` as whole words: "R" is not found in "Rust". */
+function hasWord(text: string, words: string): boolean {
+  const escaped = words.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, "u").test(text);
+}
+
+/** The title is about the topic, not only near it ("Redmine stops abruptly" is no shutdown). */
+function aboutTopic(hit: SearchHit, rule: RiskRule): boolean {
+  const title = hit.title.toLowerCase();
+  return rule.words.some((word) => title.includes(word));
+}
+
+/** One signal per risk topic, from the first hit that names the product and the topic. */
+export function riskSignals(evidence: Evidence, now: Date): Signal[] {
+  const signals: Signal[] = [];
+  for (const topic of RISK_TOPICS) {
+    const rule = RISK_RULES[topic];
+    // The query is `"<name>" <topic>`: match the end, so a product named "Acquired" is not hit.
+    const ending = ` ${topic.toLowerCase()}`;
+    const hit = evidence.search.find(
+      (h) => h.query.toLowerCase().endsWith(ending) && namesProduct(h) && aboutTopic(h, rule),
+    );
+    if (!hit) continue;
+    const old = hit.year !== null && now.getUTCFullYear() - hit.year > RISK_HIT_MAX_AGE_YEARS;
+    const when = hit.year === null ? "" : ` (${hit.year})`;
+    signals.push({
+      url: hit.url,
+      kind: "search",
+      note: `"${topic}": ${hit.title}${when}`,
+      // An old story still says something, but not enough for a red flag.
+      weight: old ? rule.weight / 2 : rule.weight,
+      flag: old ? "yellow" : rule.flag,
+      old,
+    });
+  }
+  return signals;
+}

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseProductList, productKey, readUrls } from "./products.ts";
+import { givenName, parseProductList, productKey, readUrls } from "./products.ts";
 
 const testSet = readFileSync(
   new URL("../../../fixtures/test-products.json", import.meta.url),
@@ -59,5 +59,12 @@ describe("parseProductList", () => {
 
   it("refuses a line that is not a URL", () => {
     expect(parseProductList("http://\n").ok).toBe(false);
+  });
+});
+
+describe("givenName", () => {
+  it("keeps a name a person gave, and drops a name that is only the host", () => {
+    expect(givenName({ name: "AnyDesk", url: "https://anydesk.com/en" })).toBe("AnyDesk");
+    expect(givenName({ name: "anydesk.com", url: "https://anydesk.com/en" })).toBeUndefined();
   });
 });
