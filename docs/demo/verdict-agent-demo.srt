@@ -1,0 +1,74 @@
+1
+00:00:00,000 --> 00:00:07,000
+This is verdict-agent. You give it a list of software products,
+and it judges each one: real, alive and trustworthy, or not.
+
+2
+00:00:07,000 --> 00:00:15,000
+Every verdict comes with evidence links
+a person can open and check.
+
+3
+00:00:15,000 --> 00:00:23,000
+It looks at the home page, dead links, the help centre,
+the Wayback Machine's first and last snapshots, and risk news.
+
+4
+00:00:23,000 --> 00:00:31,000
+Rules in a pure-function core turn that evidence
+into Green, Yellow or Red, with a confidence.
+
+5
+00:00:31,000 --> 00:00:40,000
+On the half of Stackgini's samples we didn't tune on, it gets 9 of 20 right.
+It goes wrong mostly on Yellow products: it rates them Green, so it's too trusting.
+
+6
+00:00:40,000 --> 00:00:47,000
+Two authors built this through pull requests,
+and Norma checked every one.
+
+7
+00:00:47,000 --> 00:00:54,000
+Norma flagged a HIGH finding: an unbounded Promise.all
+that checked every link on a vendor's site at once.
+
+8
+00:00:54,000 --> 00:01:00,000
+That hammers the vendor. We replaced it with a limiter,
+two requests at a time. The re-check came back clean.
+
+9
+00:01:00,000 --> 00:01:08,000
+We kept one finding: console.log in eval.ts.
+It's a command-line tool, and the printed table is its output.
+
+10
+00:01:08,000 --> 00:01:15,000
+Both authors accepted it independently,
+for the same reason.
+
+11
+00:01:15,000 --> 00:01:24,000
+The clash: author one kept the fetch loops sequential on purpose,
+so the one-second politeness gap per site would hold.
+
+12
+00:01:24,000 --> 00:01:33,000
+Author two needed to judge many products, so they moved politeness
+into the fetcher, as a queue per site, and ran products in parallel.
+
+13
+00:01:33,000 --> 00:01:42,000
+We chose author two's way for the whole repo: politeness in one place
+is safer than asking every caller to remember it.
+
+14
+00:01:42,000 --> 00:01:50,000
+We gave up the simpler one-request-at-a-time model.
+And honestly, author two knew about author one's choice.
+
+15
+00:01:50,000 --> 00:02:00,000
+Every finding and its outcome is in the Norma log.
+No code was deleted to hide a finding. Thanks.

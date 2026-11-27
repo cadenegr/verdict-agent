@@ -1,5 +1,7 @@
 # verdict-agent
 
+**Demo video (1:32, no sound):** [`docs/demo/verdict-agent-demo.webm`](docs/demo/verdict-agent-demo.webm), with the narration as subtitles in [`docs/demo/verdict-agent-demo.srt`](docs/demo/verdict-agent-demo.srt).
+
 A command-line agent that judges whether a software product is real, alive and trustworthy, and
 gives evidence links a human can open. Built for the Research to Commerce hackathon (Norma
 challenge). Two agents work on this repo through branches and pull requests, and the Norma GitHub

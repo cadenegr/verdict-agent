@@ -1,5 +1,7 @@
 # Defence
 
+**Demo video (1:32, no sound):** [`docs/demo/verdict-agent-demo.webm`](docs/demo/verdict-agent-demo.webm), with the narration as subtitles in [`docs/demo/verdict-agent-demo.srt`](docs/demo/verdict-agent-demo.srt).
+
 Two authors built this repo: `cadenegr` (PRs #3, #5, #7) and `neodgri` (PRs #4, #6). Both ran
 Norma's `live_check` on their files before each commit, and the Norma GitHub App checked every PR.
 Every finding and what we did with it is in [`docs/norma-log.md`](docs/norma-log.md). No code was
