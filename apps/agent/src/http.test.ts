@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createFetcher } from "./http.ts";
+import { createFetcher, createHostQueue } from "./http.ts";
 
 /** A fake clock that only moves when the fetcher sleeps, and a log of request start times. */
 function setup() {
@@ -47,5 +47,40 @@ describe("createFetcher rate limit", () => {
     await fetcher.get("https://a.test/1");
     await fetcher.get("https://a.test/2");
     expect(starts[1]!.at - starts[0]!.at).toBe(1000);
+  });
+
+  it("keeps a host polite across fetchers that share a queue", async () => {
+    let now = 0;
+    const starts: number[] = [];
+    const hosts = createHostQueue({
+      minGapMs: 1000,
+      clock: () => now,
+      sleep: async (ms) => {
+        now += ms;
+      },
+    });
+    const fakeFetch = (async () => {
+      starts.push(now);
+      return new Response("ok");
+    }) as typeof fetch;
+    const one = createFetcher({ maxRequests: null, timeoutMs: 1000, fetch: fakeFetch, hosts });
+    const two = createFetcher({ maxRequests: null, timeoutMs: 1000, fetch: fakeFetch, hosts });
+    await Promise.all([one.get("https://a.test/1"), two.get("https://a.test/2")]);
+    expect(starts).toEqual([0, 1000]);
+  });
+
+  it("keeps serving a host after a turn failed", async () => {
+    let calls = 0;
+    const hosts = createHostQueue({
+      minGapMs: 1000,
+      clock: () => 0,
+      sleep: async () => {
+        calls += 1;
+        if (calls === 1) throw new Error("sleep failed");
+      },
+    });
+    await hosts.wait("a.test");
+    await expect(hosts.wait("a.test")).rejects.toThrow("sleep failed");
+    await expect(hosts.wait("a.test")).resolves.toBeUndefined();
   });
 });

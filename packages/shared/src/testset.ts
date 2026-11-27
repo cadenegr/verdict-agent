@@ -4,9 +4,13 @@ import { ProductVerdictSchema, VerdictSchema } from "./verdict.ts";
 /** What a human said about a product in a test set: never `unsure`. */
 export const LabelSchema = VerdictSchema.exclude(["unsure"]);
 
-export const LabelledProductSchema = z.object({
+/** A product to judge: a name for people, a URL for the agent. */
+export const ProductSchema = z.object({
   name: z.string().min(1),
   url: z.url(),
+});
+
+export const LabelledProductSchema = ProductSchema.extend({
   label: LabelSchema,
   reason: z.string(),
 });
@@ -15,12 +19,6 @@ export const LabelledProductSchema = z.object({
 export const TestSetSchema = z.object({
   note: z.string().optional(),
   products: z.array(LabelledProductSchema),
-});
-
-/** A product to judge: a name for people, a URL for the agent. */
-export const ProductSchema = z.object({
-  name: z.string().min(1),
-  url: z.url(),
 });
 
 /** One line of `live/verdicts.jsonl`. */

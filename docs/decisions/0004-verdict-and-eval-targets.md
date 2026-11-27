@@ -11,9 +11,11 @@ breaking the politeness rule: at most one request per second per host.
 ## Decision
 
 - Add `verdict` and `eval` targets next to `evidence`. Same pattern: `pnpm --filter @app/agent <script>`.
-- The fetcher keeps a promise queue per host. Overlapping calls to one host start at least 1 s
-  apart; different hosts don't wait for each other. Politeness lives in one place, the fetcher,
-  so callers may run products side by side.
+- A host queue (`createHostQueue` in `apps/agent/src/http.ts`) keeps a promise chain per host.
+  Overlapping calls to one host start at least 1 s apart; different hosts don't wait for each
+  other. `startAgent()` makes one queue and hands it to every fetcher (the archive and each
+  product's site fetcher), so two products on the same host still share the limit. Politeness
+  lives in one place, so callers may run products side by side.
 - `make verdict` judges up to 4 products at once (`mapWithLimit` in `apps/agent/src/pool.ts`) and
   rewrites `live/verdicts.jsonl` on every run, in input order.
 
