@@ -1,0 +1,19 @@
+{
+  "name": "@app/agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "evidence": "node src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@app/core": "workspace:*",
+    "@app/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.1"
+  }
+}

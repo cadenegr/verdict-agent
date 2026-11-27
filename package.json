@@ -1,0 +1,29 @@
+{
+  "name": "app",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.21.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @app/web dev",
+    "build": "pnpm --filter @app/web build",
+    "preview": "pnpm --filter @app/web preview",
+    "test": "pnpm -r test",
+    "e2e": "pnpm --filter @app/web e2e",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint . && prettier --check . && pnpm typecheck",
+    "format": "prettier --write . && eslint . --fix"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.8",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.73.0"
+  }
+}
