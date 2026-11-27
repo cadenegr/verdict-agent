@@ -49,9 +49,10 @@ function reasoning(line: VerdictLine, rating: Rating): string {
 export function toStackgini(line: VerdictLine): StackginiRow {
   const rating = ratingOf(line);
   return {
+    id: line.id ?? "",
     url: line.product,
     product: line.name,
-    vendor: "",
+    vendor: line.vendor ?? "",
     overall: OVERALL[rating],
     green_flags: flagsText(line, "green"),
     yellow_flags: flagsText(line, "yellow"),

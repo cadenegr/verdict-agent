@@ -1,11 +1,12 @@
-// make export: write live/verdicts.jsonl as live/stackgini.csv, in the organizers' columns.
+// make export: write live/verdicts.jsonl as stackgini-verdicts.csv at the top of the repo
+// (the file the organizers grade), in the columns of their labelled set.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { stackginiCsv, toStackgini } from "@app/core";
 import { readVerdicts } from "./lines.ts";
 import { LIVE_DIR, VERDICTS_FILE } from "./verdict.ts";
 
-const CSV_FILE = new URL("stackgini.csv", LIVE_DIR);
+const CSV_FILE = new URL("../stackgini-verdicts.csv", LIVE_DIR);
 
 function main() {
   if (!existsSync(VERDICTS_FILE)) {

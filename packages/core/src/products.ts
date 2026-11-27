@@ -1,5 +1,8 @@
-// Reading a list of products to judge: a test set (JSON) or one URL per line.
+// Reading a list of products to judge: the organizers' CSV, a test set (JSON) or one URL per line.
 import { TestSetSchema, type Product } from "@app/shared";
+import { csvRecords } from "./csv.ts";
+
+const withScheme = (url: string) => (/^https?:\/\//i.test(url) ? url : `https://${url}`);
 
 export type ProductListResult = { ok: true; products: Product[] } | { ok: false; error: string };
 
@@ -9,7 +12,7 @@ export function readUrls(text: string): string[] {
   for (const raw of text.split("\n")) {
     const line = raw.trim();
     if (line === "" || line.startsWith("#")) continue;
-    urls.push(/^https?:\/\//i.test(line) ? line : `https://${line}`);
+    urls.push(withScheme(line));
   }
   return urls;
 }
@@ -37,8 +40,41 @@ function fromUrlLines(text: string): ProductListResult {
   return { ok: true, products };
 }
 
-/** A test set keeps its names; a plain list is named by host. Labels are ignored here. */
+/** The organizers' CSV (id, url, product, vendor): a header row that names a url column. */
+function isCsv(text: string): boolean {
+  const first =
+    text
+      .replace(/^\uFEFF/, "")
+      .trimStart()
+      .split(/\r?\n/, 1)[0] ?? "";
+  return first.includes(",") && /(^|,)\s*"?url"?\s*(,|$)/i.test(first);
+}
+
+function fromCsv(text: string): ProductListResult {
+  const products: Product[] = [];
+  for (const record of csvRecords(text)) {
+    if (!record.url) continue;
+    const url = withScheme(record.url);
+    let host: string;
+    try {
+      host = new URL(url).hostname;
+    } catch {
+      return { ok: false, error: `not a URL: ${record.url}` };
+    }
+    products.push({
+      name: record.product || host,
+      url,
+      ...(record.id ? { id: record.id } : {}),
+      ...(record.vendor ? { vendor: record.vendor } : {}),
+    });
+  }
+  if (products.length === 0) return { ok: false, error: "no products in the list" };
+  return { ok: true, products };
+}
+
+/** A CSV or test set keeps its names; a plain list is named by host. Labels are ignored here. */
 export function parseProductList(text: string): ProductListResult {
+  if (isCsv(text)) return fromCsv(text);
   if (!text.trimStart().startsWith("{")) return fromUrlLines(text);
   let json: unknown;
   try {
