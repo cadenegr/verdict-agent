@@ -5,6 +5,25 @@ gives evidence links a human can open. Built for the Research to Commerce hackat
 challenge). Two agents work on this repo through branches and pull requests, and the Norma GitHub
 App checks each pull request.
 
+## Stackgini verdicts
+
+[`stackgini-verdicts.csv`](stackgini-verdicts.csv) at the top level holds the agent's verdict for
+the 10 out-of-sample products (ids 41–50, input in
+[`fixtures/out_of_sample/out_of_sample_10.csv`](fixtures/out_of_sample/out_of_sample_10.csv)).
+Nobody researched them by hand: it was made with
+`SEARCH_PROVIDER=tavily JUDGE=claude make verdict IN=fixtures/out_of_sample/out_of_sample_10.csv`
+followed by `make export`.
+
+- Columns: `id, url, product, vendor` as given, then `overall`, `green_flags`, `yellow_flags`,
+  `red_flags` and `reasoning`. Each flag is one reason followed by the link it rests on, in
+  brackets. Flags are separated by `;`.
+- `overall` is **Red** when the product is dead or any evidence is a red flag (for example a
+  regulator fine, a confirmed breach or a court ruling against the vendor). It is **Yellow** when
+  the agent doubts it or can't tell, for example when the vendor or its claims can't be checked or the product looks
+  very new. Otherwise it is **Green**. Yellow flags alone don't make a product Yellow.
+- `reasoning` gives the agent's internal verdict (`trust`, `doubt` or `dead`), its confidence and
+  what it couldn't check.
+
 ## Status
 
 - Works now: `make evidence IN=<file>` collects evidence per product (home page, dead links, help
