@@ -5,6 +5,9 @@ import { collectEvidence } from "./collect.ts";
 import { createFetcher, type Fetcher } from "./http.ts";
 import { searchFromEnv, type SearchProvider } from "./search/index.ts";
 
+/** Products handled side by side. Each vendor is its own host; the shared archive is queued. */
+export const PRODUCTS_AT_ONCE = 4;
+
 export interface Agent {
   /** Collects the evidence for one product. Safe to call for several products at once. */
   collect(url: string): Promise<Evidence>;

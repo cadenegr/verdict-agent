@@ -4,13 +4,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { judge, parseProductList } from "@app/core";
 import type { VerdictLine } from "@app/shared";
 import { mapWithLimit } from "./pool.ts";
-import { startAgent } from "./run.ts";
+import { PRODUCTS_AT_ONCE, startAgent } from "./run.ts";
 
 export const LIVE_DIR = new URL("../../../live/", import.meta.url);
 export const VERDICTS_FILE = new URL("verdicts.jsonl", LIVE_DIR);
-
-/** Products judged side by side. Each vendor is its own host; the archive is queued. */
-const PRODUCTS_AT_ONCE = 4;
 
 async function main() {
   const file = process.argv[2];

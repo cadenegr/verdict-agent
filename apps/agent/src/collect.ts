@@ -10,8 +10,12 @@ import {
 } from "@app/core";
 import { MAX_PAGES_PER_PRODUCT, type DeadLink, type Evidence } from "@app/shared";
 import type { Fetcher } from "./http.ts";
+import { mapWithLimit } from "./pool.ts";
 import type { SearchProvider } from "./search/index.ts";
 import { findSnapshots } from "./wayback.ts";
+
+/** Links on the vendor's site checked side by side. All on one host, so the queue spaces them. */
+const LINKS_AT_ONCE = 2;
 
 export interface CollectDeps {
   /** A fetcher for the vendor's own site, capped at MAX_PAGES_PER_PRODUCT. */
@@ -36,13 +40,12 @@ export async function collectEvidence(url: string, deps: CollectDeps): Promise<E
   const links = extractLinks(html, pageUrl);
   const docs = pickDocsLink(links, pageUrl);
   const toCheck = pickLinksToCheck(links, pageUrl, MAX_PAGES_PER_PRODUCT - deps.site.used);
-  const checked: DeadLink[] = [];
-  // One link at a time on purpose: politeness allows one request per second per vendor host,
-  // and every link here is on the same host.
-  for (const link of toCheck) {
-    const page = await deps.site.get(link);
-    checked.push({ url: link, status: page.status });
-  }
+  // Two in flight: the fetcher's per-host queue still starts them one second apart,
+  // and a slow reply no longer holds up the next request.
+  const checked: DeadLink[] = await mapWithLimit(toCheck, LINKS_AT_ONCE, async (link) => ({
+    url: link,
+    status: (await deps.site.get(link)).status,
+  }));
 
   const wayback = await findSnapshots(deps.archive, url);
   if (wayback.error) errors.push(wayback.error);
