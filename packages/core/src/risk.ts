@@ -25,7 +25,7 @@ interface RiskRule {
  * Stackgini samples only.
  */
 const RISK_RULES: Readonly<Record<RiskTopic, RiskRule>> = {
-  "shut down": { weight: -1, flag: "red", words: ["shut", "shutter", "closes", "closing down"] },
+  "shut down": { weight: -1, flag: "red", words: ["shut", "shutter", "closing down"] },
   "data breach": {
     weight: -0.5,
     flag: "yellow",
@@ -34,9 +34,15 @@ const RISK_RULES: Readonly<Record<RiskTopic, RiskRule>> = {
   "fined by regulator": {
     weight: -1,
     flag: "red",
-    words: ["fine", "penalt", "ftc", "settle", "regulator"],
+    words: ["fine", "penalt", "ftc", "settle"],
   },
-  "privacy violation": { weight: -1, flag: "red", words: ["privacy", "gdpr", "surveillance"] },
+  // "privacy" alone finds the vendor's own privacy policy, "closes" its year-end news
+  // ("Closes 2025 after ..."), and "regulator" a lawsuit, not a fine (Tavily hits).
+  "privacy violation": {
+    weight: -1,
+    flag: "red",
+    words: ["violat", "gdpr", "surveillance", "unlawful"],
+  },
   lawsuit: {
     weight: -0.5,
     flag: "yellow",
