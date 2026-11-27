@@ -11,7 +11,7 @@ App checks each pull request.
 the 10 out-of-sample products (ids 41–50, input in
 [`fixtures/out_of_sample/out_of_sample_10.csv`](fixtures/out_of_sample/out_of_sample_10.csv)).
 Nobody researched them by hand: it was made with
-`SEARCH_PROVIDER=tavily JUDGE=claude make verdict IN=fixtures/out_of_sample/out_of_sample_10.csv`
+`SEARCH_PROVIDER=claude JUDGE=claude make verdict IN=fixtures/out_of_sample/out_of_sample_10.csv`
 followed by `make export`.
 
 - Columns: `id, url, product, vendor` as given, then `overall`, `green_flags`, `yellow_flags`,
