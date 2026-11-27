@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { givenName, judge, parseProductList } from "@app/core";
 import type { Evidence, VerdictLine } from "@app/shared";
+import { judgeFromEnv } from "./judge.ts";
 import { readEvidence } from "./lines.ts";
 import { mapWithLimit } from "./pool.ts";
 import { PRODUCTS_AT_ONCE, startAgent } from "./run.ts";
@@ -36,6 +37,8 @@ async function main() {
   const saved = savedEvidence();
   const reuse = process.env.REUSE === "1";
   const agent = startAgent();
+  // After startAgent: it loads .env, where JUDGE may be set.
+  const judgeStep = judgeFromEnv(process.env);
   // Fewer at once when reusing: the archive lookups being retried are the ones that failed under load.
   const atOnce = reuse ? 2 : PRODUCTS_AT_ONCE;
   const lines = await mapWithLimit(list.products, atOnce, async (product) => {
@@ -43,11 +46,14 @@ async function main() {
     const evidence = await agent.collect(product.url, givenName(product), earlier);
     saved.set(product.url, evidence);
     const checkedAt = new Date();
-    const line: VerdictLine = {
+    const ruled: VerdictLine = {
       name: product.name,
       ...judge(evidence, checkedAt),
       checkedAt: checkedAt.toISOString(),
     };
+    const judged = judgeStep ? await judgeStep.review(ruled) : { line: ruled, error: null };
+    if (judged.error) console.error(`${product.name}: ${judged.error}; the rules' verdict stays`);
+    const line = judged.line;
     console.error(`${product.name}: ${line.verdict} (${line.confidence})`);
     return line;
   });

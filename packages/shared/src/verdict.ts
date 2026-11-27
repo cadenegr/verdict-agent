@@ -41,6 +41,8 @@ export const EVIDENCE_KINDS = [
   "end-notice",
   /** A lookup that failed: no evidence either way, but less confidence. */
   "gap",
+  /** A reason from the Claude judge, read against the reviewers' checklist. */
+  "judge",
 ] as const;
 
 export const VerdictEvidenceSchema = z.object({
