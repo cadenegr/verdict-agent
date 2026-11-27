@@ -25,7 +25,7 @@ function savedEvidence(): Map<string, Evidence> {
 async function main() {
   const file = process.argv[2];
   if (!file) {
-    console.error("Usage: make verdict IN=<test set JSON, or one URL per line>");
+    console.error("Usage: make verdict IN=<organizers CSV, test set JSON, or one URL per line>");
     process.exit(2);
   }
   const list = parseProductList(readFileSync(file, "utf8"));
@@ -48,6 +48,8 @@ async function main() {
     const checkedAt = new Date();
     const ruled: VerdictLine = {
       name: product.name,
+      ...(product.id ? { id: product.id } : {}),
+      ...(product.vendor ? { vendor: product.vendor } : {}),
       ...judge(evidence, checkedAt),
       checkedAt: checkedAt.toISOString(),
     };

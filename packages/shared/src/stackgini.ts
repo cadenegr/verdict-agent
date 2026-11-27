@@ -5,9 +5,11 @@ export const OVERALLS = ["Green", "Yellow", "Red"] as const;
 
 /** One row of the organizers' sample file, in their column order. */
 export const StackginiRowSchema = z.object({
+  /** The organizers' id, empty for lists without one. */
+  id: z.string(),
   url: z.url(),
   product: z.string().min(1),
-  /** Unknown to the agent so far: left empty rather than guessed. */
+  /** As the organizers gave it; empty rather than guessed. */
   vendor: z.string(),
   overall: z.enum(OVERALLS),
   green_flags: z.string(),

@@ -35,6 +35,22 @@ describe("parseProductList", () => {
     expect(result.products[0]).toEqual({ name: "Linear", url: "https://linear.app" });
   });
 
+  it("reads the organizers' CSV with its ids, names and vendors", () => {
+    const csv =
+      '"id","url","product","vendor"\n"11","https://www.omnissa.com/","Omnissa, Horizon","Omnissa"\n12,keybase.io,,\n';
+    expect(parseProductList(csv)).toEqual({
+      ok: true,
+      products: [
+        { id: "11", name: "Omnissa, Horizon", url: "https://www.omnissa.com/", vendor: "Omnissa" },
+        { id: "12", name: "keybase.io", url: "https://keybase.io" },
+      ],
+    });
+  });
+
+  it("refuses a CSV row whose url is not a URL", () => {
+    expect(parseProductList("id,url\n1,https://bad host\n").ok).toBe(false);
+  });
+
   it("names a plain URL list by host", () => {
     expect(parseProductList("linear.app\nhttps://keybase.io/\n")).toEqual({
       ok: true,

@@ -47,13 +47,13 @@ evidence: ## Collect evidence links for each URL in a file: make evidence IN=<fi
 	@pnpm --silent --filter @app/agent evidence "$(abspath $(IN))"
 
 verdict: ## Judge each product into live/verdicts.jsonl: make verdict IN=<file>
-	@test -n "$(IN)" || (echo "Usage: make verdict IN=<test set JSON, or one URL per line>" && exit 2)
+	@test -n "$(IN)" || (echo "Usage: make verdict IN=<organizers CSV, test set JSON, or one URL per line>" && exit 2)
 	@pnpm --silent --filter @app/agent verdict "$(abspath $(IN))"
 
 eval: ## Score live/verdicts.jsonl: make eval [LABELS=<test set>] [HALF=odd|even]
 	@pnpm --silent --filter @app/agent eval "$(if $(LABELS),$(abspath $(LABELS)))" "$(HALF)"
 
-export: ## Write live/verdicts.jsonl as live/stackgini.csv (the organizers' columns)
+export: ## Write live/verdicts.jsonl as stackgini-verdicts.csv (the organizers' columns)
 	@pnpm --silent --filter @app/agent export
 
 clean: ## Remove installed packages and build output

@@ -52,6 +52,7 @@ describe("toStackgini", () => {
     const row = toStackgini(line("trust", [home, fine, gap]));
     expect(StackginiRowSchema.parse(row)).toEqual(row);
     expect(row).toMatchObject({
+      id: "",
       url: "https://example.com",
       product: "Example",
       vendor: "",
@@ -64,6 +65,11 @@ describe("toStackgini", () => {
     expect(row.reasoning).toContain("Not checked: wayback: status 429");
   });
 
+  it("carries the organizers' id and vendor", () => {
+    const row = toStackgini({ ...line("trust", [home]), id: "7", vendor: "Example Inc." });
+    expect(row).toMatchObject({ id: "7", vendor: "Example Inc." });
+  });
+
   it("says when there was not enough evidence", () => {
     expect(toStackgini(line("unsure", [home])).reasoning).toMatch(/^Not enough evidence/);
   });
@@ -74,7 +80,7 @@ describe("stackginiCsv", () => {
     const csv = stackginiCsv([toStackgini(line("trust", [home, fine]))]);
     const [header, first] = csv.trimEnd().split("\n");
     expect(header).toBe(
-      '"url","product","vendor","overall","green_flags","yellow_flags","red_flags","reasoning"',
+      '"id","url","product","vendor","overall","green_flags","yellow_flags","red_flags","reasoning"',
     );
     expect(first).toContain('"""fine"": Regulator fines Example');
   });

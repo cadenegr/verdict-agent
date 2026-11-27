@@ -8,6 +8,9 @@ export const LabelSchema = VerdictSchema.exclude(["unsure"]);
 export const ProductSchema = z.object({
   name: z.string().min(1),
   url: z.url(),
+  /** From the organizers' CSV: carried through to the export. */
+  id: z.string().optional(),
+  vendor: z.string().optional(),
 });
 
 export const LabelledProductSchema = ProductSchema.extend({
@@ -24,6 +27,8 @@ export const TestSetSchema = z.object({
 /** One line of `live/verdicts.jsonl`. */
 export const VerdictLineSchema = ProductVerdictSchema.extend({
   name: z.string().min(1),
+  id: z.string().optional(),
+  vendor: z.string().optional(),
   checkedAt: z.iso.datetime(),
 });
 
