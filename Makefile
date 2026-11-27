@@ -2,7 +2,7 @@
 # Run `make` or `make help` to list them.
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev test e2e screens lint format build preview phone evidence clean
+.PHONY: help setup dev test e2e screens lint format build preview phone evidence verdict eval clean
 
 help: ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-10s %s\n", $$1, $$2}'
@@ -45,6 +45,13 @@ phone: build ## Build and serve it on your network, to open on a phone
 evidence: ## Collect evidence links for each URL in a file: make evidence IN=<file>
 	@test -n "$(IN)" || (echo "Usage: make evidence IN=<file with one URL per line>" && exit 2)
 	@pnpm --silent --filter @app/agent evidence "$(abspath $(IN))"
+
+verdict: ## Judge each product into live/verdicts.jsonl: make verdict IN=<file>
+	@test -n "$(IN)" || (echo "Usage: make verdict IN=<test set JSON, or one URL per line>" && exit 2)
+	@pnpm --silent --filter @app/agent verdict "$(abspath $(IN))"
+
+eval: ## Score live/verdicts.jsonl against fixtures/test-products.json
+	@pnpm --silent --filter @app/agent eval
 
 clean: ## Remove installed packages and build output
 	rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist apps/*/dev-dist

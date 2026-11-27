@@ -3,3 +3,5 @@
 export * from "./tasks.ts";
 export * from "./evidence.ts";
 export * from "./verdict.ts";
+export * from "./products.ts";
+export * from "./score.ts";

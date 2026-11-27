@@ -20,6 +20,8 @@ export interface FetcherOptions {
   fetch?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
   clock?: () => number;
+  /** Share one queue between fetchers so a host stays polite across all of them. */
+  hosts?: HostQueue;
 }
 
 export interface Fetcher {
@@ -29,22 +31,51 @@ export interface Fetcher {
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export function createFetcher(options: FetcherOptions): Fetcher {
-  const doFetch = options.fetch ?? fetch;
+export interface HostQueue {
+  /** Resolves when it is this caller's turn to send a request to `host`. */
+  wait(host: string): Promise<void>;
+}
+
+export interface HostQueueOptions {
+  minGapMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+  clock?: () => number;
+}
+
+/**
+ * A queue per host: callers may overlap, requests to one host still start at
+ * least `minGapMs` apart, and different hosts never wait for each other.
+ */
+export function createHostQueue(options: HostQueueOptions = {}): HostQueue {
   const sleep = options.sleep ?? defaultSleep;
   const clock = options.clock ?? Date.now;
   const gap = options.minGapMs ?? MIN_MS_BETWEEN_REQUESTS_PER_HOST;
   const lastByHost = new Map<string, number>();
-  let used = 0;
+  const turnByHost = new Map<string, Promise<void>>();
+  return {
+    wait(host) {
+      const previous = turnByHost.get(host) ?? Promise.resolve();
+      // A failed turn must not block the host for everyone after it.
+      const turn = previous
+        .catch(() => {})
+        .then(async () => {
+          const last = lastByHost.get(host);
+          if (last !== undefined) {
+            const wait = last + gap - clock();
+            if (wait > 0) await sleep(wait);
+          }
+          lastByHost.set(host, clock());
+        });
+      turnByHost.set(host, turn);
+      return turn;
+    },
+  };
+}
 
-  async function waitForHost(host: string) {
-    const last = lastByHost.get(host);
-    if (last !== undefined) {
-      const wait = last + gap - clock();
-      if (wait > 0) await sleep(wait);
-    }
-    lastByHost.set(host, clock());
-  }
+export function createFetcher(options: FetcherOptions): Fetcher {
+  const doFetch = options.fetch ?? fetch;
+  const hosts = options.hosts ?? createHostQueue(options);
+  let used = 0;
 
   return {
     get used() {
@@ -55,7 +86,7 @@ export function createFetcher(options: FetcherOptions): Fetcher {
         return { url, status: null, finalUrl: null, body: null, error: "page budget used up" };
       }
       used += 1;
-      await waitForHost(new URL(url).hostname);
+      await hosts.wait(new URL(url).hostname);
       try {
         const response = await doFetch(url, {
           redirect: "follow",
