@@ -35,6 +35,10 @@ export const EVIDENCE_KINDS = [
   "wayback-first",
   "wayback-last",
   "search",
+  /** The home page tells of a rename or a new owner. */
+  "churn",
+  /** The vendor says on its own page that the product ends. */
+  "end-notice",
   /** A lookup that failed: no evidence either way, but less confidence. */
   "gap",
 ] as const;

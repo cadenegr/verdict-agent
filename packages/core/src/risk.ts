@@ -19,14 +19,16 @@ interface RiskRule {
 
 /**
  * How much each risk topic weighs against a product, the flag it raises, and the
- * words that show a title is really about it. Tuned on the odd rows of the
- * Stackgini samples: without `words`, 6 of 20; with them, 9 of 20.
+ * words that show a title is really about it. Red only for what ends a purchase:
+ * a shutdown, a regulator's fine, a privacy violation. Breaches and the rest are
+ * doubts: every large vendor has one (decision 6). Tuned on the odd rows of the
+ * Stackgini samples only.
  */
 const RISK_RULES: Readonly<Record<RiskTopic, RiskRule>> = {
   "shut down": { weight: -1, flag: "red", words: ["shut", "shutter", "closes", "closing down"] },
   "data breach": {
-    weight: -1,
-    flag: "red",
+    weight: -0.5,
+    flag: "yellow",
     words: ["breach", "leak", "hack", "exposed", "stolen"],
   },
   "fined by regulator": {
@@ -45,10 +47,21 @@ const RISK_RULES: Readonly<Record<RiskTopic, RiskRule>> = {
     flag: "yellow",
     words: ["acquire", "acquisition", "buys", "bought", "takeover", "to buy"],
   },
+  // "equity" or "investor" alone also finds use-case pages and company profiles.
   "private equity": {
     weight: -0.5,
     flag: "yellow",
-    words: ["equity", "buyout", "kkr", "vista", "thoma bravo", "investor"],
+    words: [
+      "private equity",
+      "buyout",
+      "kkr",
+      "vista",
+      "thoma bravo",
+      "clearlake",
+      "silver lake",
+      "francisco partners",
+      "permira",
+    ],
   },
   "CEO steps down": { weight: -0.5, flag: "yellow", words: ["ceo"] },
   discontinued: {
@@ -56,11 +69,24 @@ const RISK_RULES: Readonly<Record<RiskTopic, RiskRule>> = {
     flag: "yellow",
     words: ["discontinu", "end of life", "end-of-life", "deprecat", "retire", "sunset"],
   },
+  renamed: {
+    weight: -0.5,
+    flag: "yellow",
+    words: ["rename", "rebrand", "new name", "now called", "formerly"],
+  },
 };
 
-/** The quoted product name at the start of a query: `"<name>" <topic>`. */
+/** A title about what may happen ("EU warns Microsoft it could be fined"). */
+const SPECULATIVE = /\b(?:could|might|would|warns?|threatens?|faces?|probe[sd]?)\b/i;
+
+/**
+ * The product name in a query: `"<name>" <topic>`. The search model sometimes echoes
+ * the query with one quote or none, so the quotes are dropped and the topic cut off.
+ */
 function queriedName(query: string): string {
-  return /^"([^"]*)"/.exec(query)?.[1]?.trim() ?? "";
+  const bare = query.replace(/"/g, "").trim();
+  const topic = RISK_TOPICS.find((t) => bare.toLowerCase().endsWith(` ${t.toLowerCase()}`));
+  return (topic ? bare.slice(0, -topic.length - 1) : bare).trim();
 }
 
 /**
@@ -83,9 +109,13 @@ function hasWord(text: string, words: string): boolean {
   return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, "u").test(text);
 }
 
-/** The title is about the topic, not only near it ("Redmine stops abruptly" is no shutdown). */
+/**
+ * The title is about the topic, not only near it ("Redmine stops abruptly" is no shutdown).
+ * A title that asks ("Is X violating GDPR?") is a question, not news.
+ */
 function aboutTopic(hit: SearchHit, rule: RiskRule): boolean {
-  const title = hit.title.toLowerCase();
+  const title = hit.title.toLowerCase().trim();
+  if (title.endsWith("?")) return false;
   return rule.words.some((word) => title.includes(word));
 }
 
@@ -101,14 +131,16 @@ export function riskSignals(evidence: Evidence, now: Date): Signal[] {
     );
     if (!hit) continue;
     const old = hit.year !== null && now.getUTCFullYear() - hit.year > RISK_HIT_MAX_AGE_YEARS;
+    // "could be fined" is a warning: a doubt, not yet a reason not to buy.
+    const maybe = rule.flag === "red" && SPECULATIVE.test(hit.title);
     const when = hit.year === null ? "" : ` (${hit.year})`;
     signals.push({
       url: hit.url,
       kind: "search",
       note: `"${topic}": ${hit.title}${when}`,
       // An old story still says something, but not enough for a red flag.
-      weight: old ? rule.weight / 2 : rule.weight,
-      flag: old ? "yellow" : rule.flag,
+      weight: old || maybe ? rule.weight / 2 : rule.weight,
+      flag: old || maybe ? "yellow" : rule.flag,
       old,
     });
   }

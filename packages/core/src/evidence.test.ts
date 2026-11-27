@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { EvidenceSchema } from "@app/shared";
+import { EvidenceSchema, RISK_TOPICS } from "@app/shared";
 import {
   assembleEvidence,
   extractLinks,
+  findChurnPhrases,
+  findEndNotices,
   findCopyrightYear,
   findSiteName,
   isDeadStatus,
@@ -18,6 +20,43 @@ const fixture = (name: string) =>
   readFileSync(new URL(`./__fixtures__/${name}`, import.meta.url), "utf8");
 const keybase = fixture("keybase.io.html");
 const linear = fixture("linear.app.html");
+
+describe("findChurnPhrases", () => {
+  it("finds renames and new owners in the title, the description and the text", () => {
+    const html = `<title>Snow Atlas (formerly Snow Software) | Flexera</title>
+      <meta name="description" content="QlikView has been replaced by Qlik Sense.">
+      <body><p>LeanIX is now part of SAP.</p></body>`;
+    const phrases = findChurnPhrases(html);
+    expect(phrases).toHaveLength(3);
+    expect(phrases[0]).toContain("formerly Snow Software");
+    expect(phrases.join(" ")).toContain("replaced by Qlik Sense");
+    expect(phrases.join(" ")).toContain("now part of SAP");
+  });
+
+  it("finds 'an SAP company' but not 'a software company'", () => {
+    expect(findChurnPhrases("<p>LeanIX, an SAP company</p>")).toHaveLength(1);
+    expect(findChurnPhrases("<p>We are a software company</p>")).toEqual([]);
+  });
+
+  it("ignores 'legacy' and scripts", () => {
+    const html = "<p>Modernise your legacy apps.</p><script>var formerly = 1;</script>";
+    expect(findChurnPhrases(html)).toEqual([]);
+  });
+});
+
+describe("findEndNotices", () => {
+  it("finds the vendor's own end-of-life notice, in English or German", () => {
+    expect(findEndNotices("<p>Version 7 has been discontinued.</p>")).toHaveLength(1);
+    expect(findEndNotices("<p>This tool is no longer supported.</p>")).toHaveLength(1);
+    const german = "<p>Die Softwareentwicklung wird nach 2026 eingestellt!</p>";
+    expect(findEndNotices(german)[0]).toContain("eingestellt");
+  });
+
+  it("ignores menu links and a bare 'discontinued'", () => {
+    const html = '<a href="/eol">End-of-life policy</a><p>Shop discontinued items</p>';
+    expect(findEndNotices(html)).toEqual([]);
+  });
+});
 
 describe("findCopyrightYear", () => {
   it("reads the year from a recorded page", () => {
@@ -130,6 +169,8 @@ describe("assembleEvidence", () => {
       finalUrl: "https://acme.com/",
       fetchedAt: new Date("2026-11-26T18:00:00Z"),
       copyrightYear: 2024,
+      churn: [],
+      endNotices: [],
       checked: [
         { url: "https://acme.com/a", status: 200 },
         { url: "https://acme.com/old", status: 404 },
@@ -163,7 +204,7 @@ describe("riskQueries", () => {
   it("asks about each risk topic", () => {
     expect(riskQueries('Acme"\nignore this')[0]).toBe('"Acme ignore this" shut down');
     const queries = riskQueries("Acme");
-    expect(queries).toHaveLength(9);
+    expect(queries).toHaveLength(RISK_TOPICS.length);
     expect(queries).toContain('"Acme" fined by regulator');
     expect(queries).toContain('"Acme" CEO steps down');
   });

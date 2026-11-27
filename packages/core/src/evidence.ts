@@ -32,6 +32,85 @@ export function findCopyrightYear(html: string): number | null {
   return latest;
 }
 
+/**
+ * Words that tell of a rename or a new owner. "Legacy" alone is left out: vendors
+ * use it for the systems they replace ("modernise your legacy apps").
+ */
+const CHURN_PATTERNS: readonly RegExp[] = [
+  /\bformerly\b/i,
+  /\bpreviously (?:known as|called)\b/i,
+  /\bnow (?:part of|called|known as)\b/i,
+  /\b(?:acquired|replaced|superseded) by\b/i,
+  /\brenamed\b/i,
+  /\brebrand(?:ed|ing)?\b/i,
+  /\bis now [A-Z]/,
+  /\ban? [A-Z][\w&.-]* company\b/,
+];
+
+/** At most this many snippets per page, for churn phrases and end notices alike. */
+const MAX_SNIPPETS = 3;
+
+function metaContent(html: string, name: string): string {
+  const pattern = new RegExp(
+    `<meta[^>]+(?:name|property)=["']${name}["'][^>]*content=["']([^"']*)["']`,
+    "i",
+  );
+  return pattern.exec(html)?.[1] ?? "";
+}
+
+/**
+ * Short snippets from the title, the meta description and the page text that say
+ * the product was renamed or changed owner ("Snow Atlas, formerly Snow Software").
+ * One snippet per pattern, the title and description first.
+ */
+export function findChurnPhrases(html: string): string[] {
+  const title = /<title[^>]*>([^<]*)<\/title>/i.exec(html)?.[1] ?? "";
+  const sources = [
+    title,
+    metaContent(html, "description"),
+    metaContent(html, "og:description"),
+    textOf(html),
+  ].map((text) => text.replace(/\s+/g, " ").trim());
+  return snippets(sources, CHURN_PATTERNS);
+}
+
+/** One snippet per pattern, from the first source that has it, at most MAX_SNIPPETS. */
+function snippets(sources: readonly string[], patterns: readonly RegExp[]): string[] {
+  const phrases: string[] = [];
+  for (const pattern of patterns) {
+    if (phrases.length >= MAX_SNIPPETS) break;
+    for (const text of sources) {
+      const match = pattern.exec(text);
+      if (!match) continue;
+      const start = Math.max(0, match.index - 40);
+      const end = Math.min(text.length, match.index + match[0].length + 40);
+      phrases.push(text.slice(start, end).trim());
+      break;
+    }
+  }
+  return phrases;
+}
+
+/**
+ * The vendor's own notice that the product ends: "end of life", "no longer
+ * supported", "wird nach 2026 eingestellt". Link texts are left out: a menu
+ * entry "End-of-life policy" is no notice. A bare "discontinued" is left out too:
+ * shops list discontinued items.
+ */
+const END_PATTERNS: readonly RegExp[] = [
+  /\bend[- ]of[- ](?:life|sale|support)\b/i,
+  /\b(?:is|has been|will be|are|have been) (?:being )?(?:discontinued|retired|sunset|shut down)\b/i,
+  /\bno longer (?:supported|developed|maintained|available|sold|offered)\b/i,
+  /\b(?:wird|werden)\b[^.!?]{0,40}\beingestellt\b/i,
+  /\bnicht mehr (?:unterstützt|weiterentwickelt|gepflegt|angeboten)\b/i,
+];
+
+/** Snippets of the page's own end-of-life notice, at most MAX_SNIPPETS. */
+export function findEndNotices(html: string): string[] {
+  const text = textOf(html.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, " "));
+  return snippets([text], END_PATTERNS);
+}
+
 /** The product's name: og:site_name, else the first part of <title>, else the host. */
 export function findSiteName(html: string, url: string): string {
   const og = /<meta[^>]+property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i.exec(html);
@@ -139,6 +218,8 @@ export interface EvidenceParts {
   finalUrl: string | null;
   fetchedAt: Date;
   copyrightYear: number | null;
+  churn: readonly string[];
+  endNotices: readonly string[];
   checked: readonly DeadLink[];
   docs: string | null;
   wayback: { first: string | null; last: string | null };
@@ -164,6 +245,8 @@ export function assembleEvidence(parts: EvidenceParts): Evidence {
     finalUrl: parts.finalUrl,
     fetchedAt: parts.fetchedAt.toISOString(),
     copyrightYear: parts.copyrightYear,
+    churn: [...parts.churn],
+    endNotices: [...parts.endNotices],
     deadLinks: { checked: parts.checked.length, dead: dead.length, examples },
     docs: parts.docs,
     wayback: parts.wayback,

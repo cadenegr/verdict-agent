@@ -117,6 +117,39 @@ function waybackSignals(evidence: Evidence, now: Date): Signal[] {
 }
 
 /**
+ * The home page tells of a rename or a new owner: one doubt, whatever the number
+ * of phrases. Alone it doesn't make a product Yellow (Planview Vantage, "formerly
+ * Sciforma", is Green); with a yellow news hit it does.
+ */
+function churnSignals(evidence: Evidence): Signal[] {
+  if (evidence.churn.length === 0) return [];
+  return [
+    {
+      url: evidence.finalUrl ?? evidence.url,
+      kind: "churn",
+      note: `Home page tells of a rename or new owner: ${evidence.churn.map((p) => `"${p}"`).join("; ")}`,
+      weight: -0.5,
+      flag: "yellow",
+    },
+  ];
+}
+
+/** The vendor says the product ends: a reason not to buy, whatever else looks alive. */
+function endSignals(evidence: Evidence): Signal[] {
+  const notice = evidence.endNotices[0];
+  if (notice === undefined) return [];
+  return [
+    {
+      url: evidence.finalUrl ?? evidence.url,
+      kind: "end-notice",
+      note: `The vendor says the product ends: "${notice}"`,
+      weight: -1,
+      flag: "red",
+    },
+  ];
+}
+
+/**
  * Each lookup that didn't answer (archive, search): no weight either way, but the
  * verdict rests on less than it seems. A home page that fails is not a gap: that
  * failure is the evidence, and homeSignals already counts it.
@@ -138,6 +171,8 @@ export function collectSignals(evidence: Evidence, now: Date): Signal[] {
     ...homeSignals(evidence),
     ...linkSignals(evidence),
     ...waybackSignals(evidence, now),
+    ...churnSignals(evidence),
+    ...endSignals(evidence),
     ...riskSignals(evidence, now),
     ...gapSignals(evidence),
   ];
@@ -151,7 +186,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  * and a weak lead is `unsure` rather than a guess. A failed lookup caps the
  * confidence, and "alive" resting on fewer than MIN_SIGNALS observations is
  * `unsure`: a home page that loads is not enough to trust a product. A live
- * product with MIN_YELLOW_RISKS or more recent yellow search hits is `doubt`.
+ * product with MIN_YELLOW_RISKS or more recent yellow search hits and churn
+ * signals, together, is `doubt`.
  */
 export function judge(evidence: Evidence, now: Date): ProductVerdict {
   const signals = collectSignals(evidence, now);
@@ -168,7 +204,7 @@ export function judge(evidence: Evidence, now: Date): ProductVerdict {
   const confidence = hasGap ? Math.min(share, GAP_MAX_CONFIDENCE) : share;
   const lean = alive >= dead ? "trust" : "dead";
   const yellowRisks = signals.filter(
-    (s) => s.kind === "search" && s.flag === "yellow" && s.old !== true,
+    (s) => (s.kind === "search" || s.kind === "churn") && s.flag === "yellow" && s.old !== true,
   ).length;
   const doubtful = signals.some((s) => s.young === true) || yellowRisks >= MIN_YELLOW_RISKS;
   const observed = signals.filter((s) => s.kind !== "gap").length;
